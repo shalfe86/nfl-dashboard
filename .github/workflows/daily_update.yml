@@ -2,8 +2,7 @@ name: NFL Data Sync (Twice Daily)
 
 on:
   schedule:
-    # 10 UTC = 5 AM EST
-    # 22 UTC = 5 PM EST
+    # Run at 5:00 AM EST (10 UTC) and 5:00 PM EST (22 UTC)
     - cron: '0 10,22 * * *'
   
   # Allow running manually from the Actions tab for testing
@@ -26,8 +25,20 @@ jobs:
         run: |
           pip install -r backend/requirements.txt
 
-      - name: Run Ingestion Script
+      # --- STEP 1: GET RAW DATA ---
+      - name: 1. Run Ingestion (Raw Data)
         env:
-          # This pulls the hidden password from your GitHub Settings
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: python backend/ingest_nfl_data.py
+
+      # --- STEP 2: CALCULATE POWER RANKINGS ---
+      - name: 2. Run Grading System (Power/QB/Defense)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: python backend/grade_players.py
+
+      # --- STEP 3: SIMULATE PLAYOFFS ---
+      - name: 3. Run Playoff Machine (Odds)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: python backend/calculate_playoff_odds.py
