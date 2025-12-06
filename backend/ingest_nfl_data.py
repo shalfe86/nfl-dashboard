@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, text
 import datetime
 import warnings
 import os
+from urllib.error import HTTPError
 
 # Ignore pandas warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -55,43 +56,51 @@ def sync_data():
         log(f"   ✅ Rosters synced: {len(rosters)} players.")
     except Exception as e: log(f"   ❌ Roster Error: {e}")
 
-    # 3. Standings (DIRECT DOWNLOAD FIX)
-    log("📥 [3/5] Downloading Standings & Ranks...")
+    # 3. Standings
+    log("📥 [3/5] Downloading Standings...")
     try:
-        # Direct URL to the live nflverse standings file
         url = "https://github.com/nflverse/nfldata/raw/master/data/standings.csv"
         standings = pd.read_csv(url)
-        
-        # Filter for the current season to keep it relevant
         standings = standings[standings['season'].isin(YEARS)]
-        
         standings.to_sql('standings', engine, if_exists='replace', index=False)
         log(f"   ✅ Standings synced: {len(standings)} rows.")
-    except Exception as e: 
-        log(f"   ❌ Standings Error: {e}")
+    except Exception as e: log(f"   ❌ Standings Error: {e}")
 
     # 4. Play-by-Play
-    log("📥 [4/5] Downloading PBP (Standard)...")
+    log("📥 [4/5] Downloading PBP...")
     try:
         pbp = nfl.import_pbp_data(YEARS)
         pbp.to_sql('play_by_play', engine, if_exists='replace', index=False)
         log(f"   ✅ PBP synced: {len(pbp)} plays.")
     except Exception as e: log(f"   ❌ PBP Error: {e}")
 
-    # 5. Participation
+    # 5. Participation (WITH FALLBACK SAFETY NET)
     log("📥 [5/5] Downloading Participation...")
     try:
+        # Attempt 1: Try the target year (e.g., 2025)
         if hasattr(nfl, 'import_pbp_participation'):
             part = nfl.import_pbp_participation(YEARS)
         else:
-            log("   ⚠️ Library outdated, using direct download...")
             url = f"https://github.com/nflverse/nflverse-data/releases/download/pbp_participation/pbp_participation_{YEARS[0]}.csv"
             part = pd.read_csv(url)
             
         part.to_sql('participation', engine, if_exists='replace', index=False)
         log(f"   ✅ Participation synced: {len(part)} records.")
+
     except Exception as e:
-        log(f"   ❌ Participation Error: {e}")
+        # Attempt 2: FALLBACK to previous year if current year doesn't exist yet
+        log(f"   ⚠️ {YEARS[0]} data not found (404). Trying {YEARS[0]-1}...")
+        try:
+            fallback_year = YEARS[0] - 1
+            url = f"https://github.com/nflverse/nflverse-data/releases/download/pbp_participation/pbp_participation_{fallback_year}.csv"
+            part = pd.read_csv(url)
+            
+            # Save it, but label it clearly in logs
+            part.to_sql('participation', engine, if_exists='replace', index=False)
+            log(f"   ✅ Participation synced (using {fallback_year} data): {len(part)} records.")
+            
+        except Exception as e2:
+            log(f"   ❌ Participation Error: {e2}")
 
     log("🏁 Ingestion Complete.")
 
