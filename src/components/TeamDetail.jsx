@@ -6,7 +6,7 @@ import { TeamLogo } from './UI';
 import { RosterView } from './RosterView';
 import { MatchupOverlay } from './MatchupOverlay';
 
-export const TeamDetail = ({ teamId, games, leagueStats, onBack }) => {
+export const TeamDetail = ({ teamId, games, leagueStats, predictions, onBack }) => {
   const [activeTab, setActiveTab] = useState('schedule'); 
   const [selectedGame, setSelectedGame] = useState(null);
   const [teamStanding, setTeamStanding] = useState(null);
@@ -76,7 +76,14 @@ export const TeamDetail = ({ teamId, games, leagueStats, onBack }) => {
           </div>
         )}
       </div>
-      {selectedGame && <MatchupOverlay game={selectedGame} leagueStats={leagueStats} onClose={() => setSelectedGame(null)} />}
+        {selectedGame && (
+        <MatchupOverlay 
+          game={selectedGame} 
+          leagueStats={leagueStats} 
+          predictions={predictions} // <--- Ensure this prop is passed!
+          onClose={() => setSelectedGame(null)} 
+        />
+      )}
     </div>
   );
 };
