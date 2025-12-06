@@ -1,0 +1,33 @@
+name: NFL Data Sync (Twice Daily)
+
+on:
+  schedule:
+    # 10 UTC = 5 AM EST
+    # 22 UTC = 5 PM EST
+    - cron: '0 10,22 * * *'
+  
+  # Allow running manually from the Actions tab for testing
+  workflow_dispatch:
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Run Ingestion Script
+        env:
+          # This pulls the hidden password from your GitHub Settings
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: python backend/ingest_nfl_data.py
